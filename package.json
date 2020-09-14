@@ -1,0 +1,17 @@
+{
+  "name": "no.bears.unitytools",
+  "version": "0.1.1",
+  "displayName": "Bear's Unity Toolbox",
+  "description": "Small, self-contained collection of editor productivity tools.",
+  "unity": "2019.1",
+ "keywords": [
+    "tools",
+    "editor",
+    "hotkeys"
+  ],
+  "author": {
+    "name": "Bjørnar Frøyse",
+    "email": "mail@bjornarfroyse.com",
+    "url": "www.bjornarfroyse.com"
+  }
+}
