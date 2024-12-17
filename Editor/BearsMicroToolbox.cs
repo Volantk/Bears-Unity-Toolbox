@@ -1566,19 +1566,19 @@ namespace BearsEditorTools
             }
         }
         
-        [MenuItem("Bears/Internal/EditorUtility.UnloadUnusedAssetsImmediate()")]
+        [MenuItem("Tools/Bears/EditorUtility/UnloadUnusedAssetsImmediate()")]
         private static void UnloadUnusedAssets()
         {
             EditorUtility.UnloadUnusedAssetsImmediate();
         }
 
-        [MenuItem("Bears/Internal/EditorUtility.ClearProgressBar()")]
+        [MenuItem("Tools/Bears/EditorUtility/ClearProgressBar()")]
         private static void ClearProgressBar()
         {
             EditorUtility.ClearProgressBar();
         }
         
-        [MenuItem("Bears/Internal/AssetDatabase.StopAssetEditing()")]
+        [MenuItem("Tools/Bears/AssetDatabase/StopAssetEditing()")]
         private static void StopAssetEditing()
         {
             AssetDatabase.StopAssetEditing();
