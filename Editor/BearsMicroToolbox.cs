@@ -12,9 +12,9 @@ using Object = UnityEngine.Object;
 using Random = UnityEngine.Random;
 using UnityEditor.ShortcutManagement;
 
-namespace Bears
+namespace BearsEditorTools
 {
-    public static class BearsMicroToolbox
+    public static class BearsBagOfTricks
     {
         public static Transform copiedTransform;
         private static Vector3 copiedLocalPosition;
@@ -142,9 +142,9 @@ namespace Bears
             return Selection.activeGameObject != null;
         }
 
-        /*
+        /* // ERRORS, commented out
         [MenuItem("GameObject/PREFAB ACTIONS/Apply Overrides In Source Prefab", priority = -99997)]
-        [Shortcut("Krillbite/Prefab Actions/Apply Overrides In Source Prefab")]
+        [Shortcut("Bears/Actions/Apply Overrides In Source Prefab")]
         public static void ApplyPrefabOverrides()
         {
             var prefabRoots = Selection.gameObjects.Select(PrefabUtility.GetNearestPrefabInstanceRoot).Distinct()
@@ -235,38 +235,6 @@ namespace Bears
                 Debug.LogError("Cannot revert prefabs - nothing selected");
             }
         }
-        
-        public static Scene GetSceneFromInstanceID(int id)
-        {
-            Type type = typeof(EditorSceneManager);
-            MethodInfo mi = type.GetMethod("GetSceneByHandle", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Static);
-            object classInstance = Activator.CreateInstance(type, null);
-            return (Scene)mi.Invoke(classInstance, new object[] { id });
-        }
-
-        public static Scene[] GetAllScenes()
-        {
-            var scenes = new List<Scene>();
-            foreach (var sceneSetup in EditorSceneManager.GetSceneManagerSetup())
-            {
-                scenes.Add(EditorSceneManager.GetSceneByPath(sceneSetup.path));
-            }
-            return scenes.ToArray();
-        }
-        
-        public static Scene[] GetSelectedScenes()
-        {
-            var selectedScenes = new List<Scene>();
-
-            foreach (var instanceID in Selection.instanceIDs)
-            {
-                var scene = GetSceneFromInstanceID(instanceID);
-                if (scene.IsValid()) selectedScenes.Add(scene);
-            }
-
-            return selectedScenes.ToArray();
-        }
-
 
         [Shortcut("GameObject/Tools/New Child", KeyCode.N, ShortcutModifiers.Alt | ShortcutModifiers.Shift)]
         public static void CreateNewChild()
@@ -276,7 +244,7 @@ namespace Bears
             foreach (var id in Selection.instanceIDs)
             {
                 var p = EditorUtility.InstanceIDToObject(id) as GameObject;
-                var s = GetSceneFromInstanceID(id);
+                var s = EditorSceneUtility.GetSceneFromInstanceID(id);
 
                 if (p != null)
                 {
@@ -316,12 +284,12 @@ namespace Bears
         {
             // Selected transforms, sorted by hierarchy and parent
             // Using descending order so that objects come out in the right order at the end
-            var transforms = Selection.transforms.OrderByDescending(t => t.GetSiblingIndex()).ThenBy(t => t.parent);
-            
+            var transforms = GetSelectedTransformsOrdered().Reverse();
+
             foreach (var t in transforms)
             {
                 // No parent, object is already at top level, do nothing
-                if (t.parent == null) 
+                if (t.parent == null)
                     return;
 
                 // Skip objects that are part of a prefab, since we don't wanna accidentally do something Unity isn't expecting...
@@ -331,7 +299,7 @@ namespace Bears
                     Debug.LogWarning($"Can't move {t.gameObject} up in the hierarchy because it's part of a prefab", t.gameObject);
                     continue;
                 }
-                
+
                 // The index below the parent in the hiearchy (this makes objects show up underneath their parent when they're moved, which is nice and intuitive.
                 int newSiblingIndex = t.parent.GetSiblingIndex() + 1;
 
@@ -346,10 +314,10 @@ namespace Bears
                 {
                     Undo.SetTransformParent(t, t.parent.parent, "Move up in hierarchy");
                 }
-                
+
                 // Recording sibling index edit, so we can undo things. This was initially used to ensure we could restore accidentally edited prefab instances. We skip those now, but this is kept it in for safety. 
                 Undo.RecordObject(t, "Move up in hierarchy");
-                
+
                 // Keep hierarchy order intact
                 t.SetSiblingIndex(newSiblingIndex);
 
@@ -358,7 +326,7 @@ namespace Bears
             }
         }
 
-        //[MenuItem("Krillbite/Shortcuts/Copy\\Paste/Align Camera To View &%#F")]
+        //[MenuItem("Bears/Copy\\Paste/Align Camera To View &%#F")]
         //public static void AlignCameraToView()
         //{
         //	var gameCamera = GetMainCamera().transform;
@@ -418,8 +386,10 @@ namespace Bears
 
             Debug.Log("Copied values clipboard: " + output);
         }
+        
+        public static bool HasCopyBuffer { get; private set; }
 
-        [Shortcut("Krillbite/Shortcuts/Copy\\Paste/Copy Transform", KeyCode.C, ShortcutModifiers.Action | ShortcutModifiers.Alt)]
+        [Shortcut("Bears/Copy\\Paste/Copy Transform", KeyCode.C, ShortcutModifiers.Action | ShortcutModifiers.Alt)]
         public static void CopyTransform()
         {
             if (Selection.activeTransform == null) return;
@@ -446,10 +416,12 @@ namespace Bears
                 copiedGeometryScale = null;
             }
 
+            HasCopyBuffer = true;
+
             Debug.Log(string.Format("Successfully copied the transform of {0}{1}", Selection.activeTransform.name, copiedGeometryScale.HasValue ? " (also copied geometry scale!)" : ""));
         }
 
-        [Shortcut("Krillbite/Shortcuts/Copy\\Paste/Paste Transform (Local)", KeyCode.V, ShortcutModifiers.Action | ShortcutModifiers.Alt)]
+        [Shortcut("Bears/Copy\\Paste/Paste Transform (Local)", KeyCode.V, ShortcutModifiers.Action | ShortcutModifiers.Alt)]
         public static void PasteTransformLocal()
         {
             foreach (Transform t in Selection.transforms)
@@ -478,7 +450,7 @@ namespace Bears
             }
         }
 
-        [Shortcut("Krillbite/Shortcuts/Copy\\Paste/Paste Transform (Global)", KeyCode.V, ShortcutModifiers.Action | ShortcutModifiers.Shift | ShortcutModifiers.Alt)]
+        [Shortcut("Bears/Copy\\Paste/Paste Transform (Global)", KeyCode.V, ShortcutModifiers.Action | ShortcutModifiers.Shift | ShortcutModifiers.Alt)]
         public static void PasteTransformGlobal()
         {
             foreach (Transform t in Selection.transforms)
@@ -490,28 +462,99 @@ namespace Bears
             }
         }
 
-        /*
-        [Shortcut("Krillbite/Shortcuts/Copy\\Paste/Paste Transform (Preserve Children) (Global)", KeyCode.B, ShortcutModifiers.Alt | ShortcutModifiers.Action)]
+        [Shortcut("Bears/Copy\\Paste/Paste Transform (Preserve Children) (Global)", KeyCode.B, ShortcutModifiers.Alt | ShortcutModifiers.Action)]
         public static void PasteTransformGlobalNoChildren()
         {
             foreach (Transform t in Selection.transforms)
             {
                 Undo.RecordObject(t, "Paste Global Transform");
-                t.SetWorldWithoutAffectingChildren(copiedWorldPosition, copiedWorldRotation, copiedWorldScale);
+                t.SetTransformWithoutAffectingChildren(copiedWorldPosition, copiedWorldRotation, copiedWorldScale);
             }
         }
 
-        [Shortcut("Krillbite/Shortcuts/Copy\\Paste/Paste Transform (Preserve Children) (Local)", KeyCode.B, ShortcutModifiers.Alt | ShortcutModifiers.Action | ShortcutModifiers.Shift)]
+        [Shortcut("Bears/Copy\\Paste/Paste Transform (Preserve Children) (Local)", KeyCode.B, ShortcutModifiers.Alt | ShortcutModifiers.Action | ShortcutModifiers.Shift)]
         public static void PasteTransformLocalNoChildren()
         {
             foreach (Transform t in Selection.transforms)
             {
                 Undo.RecordObject(t, "Paste Local Transform");
-                t.SetLocalWithoutAffectingChildren(copiedLocalPosition, copiedLocalRotation, copiedLocalScale);
+                t.SetLocalTransformWithoutAffectingChildren(copiedLocalPosition, copiedLocalRotation, copiedLocalScale);
             }
         }
-        */
+        
+        private static List<Transform> GetDirectChildren(this Transform transform)
+        {
+            var children = new List<Transform>();
+            for (int i = 0; i < transform.childCount; i++)
+            {
+                children.Add(transform.GetChild(i));
+            }
 
+            return children;
+        }
+
+        public static void SetLocalTransformWithoutAffectingChildren(this Transform transform, Vector3 localPos, Quaternion localRot, Vector3 localScale)
+        {
+            var calcWorldPos   = transform.TransformPoint(localPos);
+            var calcWorldRot   = localRot * transform.worldToLocalMatrix.rotation;
+            var calcWorldScale = transform.TransformVector(localScale);
+            
+            SetTransformWithoutAffectingChildren(transform, calcWorldPos, calcWorldRot, calcWorldScale);
+        }
+        
+        public static void SetTransformWithoutAffectingChildren(this Transform transform, Vector3 position, Quaternion rotation, Vector3 localScale)
+        {
+            Transform target = transform;
+
+            Undo.RecordObject(target, "SetTransformWithoutAffectingChildren");
+
+            List<Transform> children = target.GetDirectChildren();
+
+            List<Tuple<Transform, Vector3, Quaternion, Vector3, Vector3, Matrix4x4>> childWorldTransforms = 
+                children.Select(c => new Tuple<Transform, Vector3, Quaternion, Vector3, Vector3, Matrix4x4>(c, c.position, c.rotation, c.localScale, c.lossyScale, c.worldToLocalMatrix)).ToList();
+
+            foreach (var t in children)
+            {
+                Undo.RecordObject(t, "SetTransformWithoutAffectingChildren");
+            }
+
+            target.position   = position;
+            target.rotation   = rotation;
+
+            Vector3 orgLocalScale = target.localScale;
+
+            var  parentScaleChangedByThisMuch = Vector3.one + localScale - target.localScale;
+            
+            // Debug.Log("parentScaleChangedByThisMuch: " + parentScaleChangedByThisMuch);
+            
+            target.localScale = localScale;
+
+            bool needSpecificScaling = target.localScale == orgLocalScale;
+
+            foreach (var tuple in childWorldTransforms)
+            {
+                var t          = tuple.Item1;
+                var pos        = tuple.Item2;
+                var rot        = tuple.Item3;
+                var scale      = tuple.Item4;
+
+                if (needSpecificScaling)
+                {
+                    if(parentScaleChangedByThisMuch.x != 0) scale.x /= parentScaleChangedByThisMuch.x;
+                    if(parentScaleChangedByThisMuch.y != 0) scale.y /= parentScaleChangedByThisMuch.y;
+                    if(parentScaleChangedByThisMuch.z != 0) scale.z /= parentScaleChangedByThisMuch.z;
+                }
+                else
+                {
+                    scale.Scale(orgLocalScale);
+                }
+
+                t.position   = pos;
+                t.rotation   = rot;
+                t.localScale = scale;
+            }
+        }
+        
         public static void PastePositionGlobal()
         {
             foreach (Transform transform in Selection.transforms)
@@ -548,7 +591,7 @@ namespace Bears
             }
         }
 
-        [Shortcut("Krillbite/Shortcuts/Reset/Position", KeyCode.G, ShortcutModifiers.Alt)]
+        [Shortcut("Bears/Reset/Position", KeyCode.G, ShortcutModifiers.Alt)]
         public static void ResetPosition()
         {
             Undo.RecordObjects(Selection.transforms, "Reset Position");
@@ -558,17 +601,17 @@ namespace Bears
             }
         }
 
-        [Shortcut("Krillbite/Shortcuts/Reset/Rotation", KeyCode.R, ShortcutModifiers.Alt)]
+        [Shortcut("Bears/Reset/Rotation", KeyCode.R, ShortcutModifiers.Alt)]
         public static void ResetRotation()
         {
             Undo.RecordObjects(Selection.transforms, "Reset Rotation");
             foreach (Transform transform in Selection.transforms)
             {
-                transform.localEulerAngles = Vector3.zero;
+                transform.localRotation = Quaternion.identity;
             }
         }
 
-        [Shortcut("Krillbite/Shortcuts/Reset/Scale", KeyCode.S, ShortcutModifiers.Alt)]
+        [Shortcut("Bears/Reset/Scale", KeyCode.S, ShortcutModifiers.Alt)]
         public static void ResetScale()
         {
             foreach (Transform transform in Selection.transforms)
@@ -578,22 +621,25 @@ namespace Bears
             }
         }
 
-        [Shortcut("Krillbite/Shortcuts/Reset/Position (Keep Children's Positions)", KeyCode.G, ShortcutModifiers.Alt | ShortcutModifiers.Action | ShortcutModifiers.Shift)]
+        [Shortcut("Bears/Reset/Position (Keep Children's Positions)", KeyCode.G, ShortcutModifiers.Alt | ShortcutModifiers.Action | ShortcutModifiers.Shift)]
         public static void ResetPositionNoChildren()
         {
-            ResetTransformWithoutAffectingChildren(Selection.transforms, true, false, false);
+            // ResetTransformWithoutAffectingChildren(GetDeepSelectedTransformsOrdered(true), true, false, false);
+            ResetTransformWithoutAffectingChildren(GetSelectedTransformsOrdered(), true, false, false);
         }
 
-        [Shortcut("Krillbite/Shortcuts/Reset/Rotation (Keep Children's Positions)", KeyCode.R, ShortcutModifiers.Alt | ShortcutModifiers.Action | ShortcutModifiers.Shift)]
+        [Shortcut("Bears/Reset/Rotation (Keep Children's Positions)", KeyCode.R, ShortcutModifiers.Alt | ShortcutModifiers.Action | ShortcutModifiers.Shift)]
         public static void ResetRotationNoChildren()
         {
-            ResetTransformWithoutAffectingChildren(Selection.transforms, false, true, false);
+            // ResetTransformWithoutAffectingChildren(GetDeepSelectedTransformsOrdered(true), false, true, false);
+            ResetTransformWithoutAffectingChildren(GetSelectedTransformsOrdered(), false, true, false);
         }
 
-        [Shortcut("Krillbite/Shortcuts/Reset/Scale (Keep Children's Positions)", KeyCode.S, ShortcutModifiers.Alt | ShortcutModifiers.Action | ShortcutModifiers.Shift)]
+        [Shortcut("Bears/Reset/Scale (Keep Children's Positions)", KeyCode.S, ShortcutModifiers.Alt | ShortcutModifiers.Action | ShortcutModifiers.Shift)]
         public static void ResetScaleNoChildren()
         {
-            ResetTransformWithoutAffectingChildren(Selection.transforms, false, false, true);
+            // ResetTransformWithoutAffectingChildren(GetDeepSelectedTransformsOrdered(true), false, false, true);
+            ResetTransformWithoutAffectingChildren(GetSelectedTransformsOrdered(), false, false, true);
         }
 
         private static Transform GetGeometryChild(Transform t)
@@ -613,7 +659,7 @@ namespace Bears
             return geometry;
         }
 
-        [Shortcut("Krillbite/Shortcuts/Snap/Position To Grid (Custom Value)", KeyCode.D, ShortcutModifiers.Alt)]
+        [Shortcut("Bears/Snap/Position To Grid (Custom Value)", KeyCode.D, ShortcutModifiers.Alt)]
         static void DoRoundPositionHotkey()
         {
             Undo.RecordObjects(Selection.gameObjects, "Snap Position To Grid (Custom value)");
@@ -624,7 +670,7 @@ namespace Bears
             }
         }
 
-        [Shortcut("Krillbite/Shortcuts/Select/Siblings With Same Name", KeyCode.Z, ShortcutModifiers.Action | ShortcutModifiers.Alt)]
+        [Shortcut("Bears/Select/Siblings With Same Name", KeyCode.Z, ShortcutModifiers.Action | ShortcutModifiers.Alt)]
         public static void SelectSiblingsWithSameName()
         {
             List<Object> newSelection = new List<Object>();
@@ -646,9 +692,12 @@ namespace Bears
                 }
                 else
                 {
-                    foreach (var allScene in GetAllScenes())
+                    foreach (var scene in EditorSceneUtility.GetAllScenes())
                     {
-                        foreach (var o in allScene.GetRootGameObjects())
+                        if(!scene.isLoaded)
+                            continue;
+                            
+                        foreach (var o in scene.GetRootGameObjects())
                         {
                             var t = o.transform;
                             if (t.parent == null && GetSearchModifiedString(t.name) == searchString)
@@ -681,7 +730,7 @@ namespace Bears
 
         #region Snapping
 
-        [Shortcut("Krillbite/Shortcuts/Snap/Rotation to nearest 15 deg")]
+        [Shortcut("Bears/Snap/Rotation to nearest 15 deg")]
         public static void RoundRotation()
         {
             Undo.RecordObjects(Selection.transforms, "Round Rotation to nearest 15 deg");
@@ -694,7 +743,7 @@ namespace Bears
             }
         }
 
-        [Shortcut("Krillbite/Shortcuts/Snap/Scale (Custom)")]
+        [Shortcut("Bears/Snap/Scale (Custom)")]
         public static void RoundScale()
         {
             foreach (GameObject obj in Selection.gameObjects)
@@ -705,13 +754,13 @@ namespace Bears
 
         #endregion
 
-        [Shortcut("Krillbite/Shortcuts/Select/Select Player")]
+        [Shortcut("Bears/Select/Select Player")]
         public static void SelectPlayer()
         {
             Selection.activeGameObject = GameObject.Find("Player");
         }
 
-        [Shortcut("Krillbite/Shortcuts/Select/Select Player Camera", KeyCode.Alpha2, ShortcutModifiers.Alt | ShortcutModifiers.Shift)]
+        [Shortcut("Bears/Select/Select Player Camera", KeyCode.Alpha2, ShortcutModifiers.Alt | ShortcutModifiers.Shift)]
         public static void SelectPlayerCamera()
         {
             Selection.activeGameObject = GetMainCamera();
@@ -731,10 +780,10 @@ namespace Bears
                 return camera;
             }
 
-            return camera.GetComponentInChildren<Camera>().gameObject;
+            return camera.GetComponentInChildren<Camera>()?.gameObject;
         }
 
-        [Shortcut("Krillbite/Shortcuts/Select/Deselect Random")]
+        [Shortcut("Bears/Select/Deselect Random")]
         public static void DeselectRandom()
         {
             List<Object> newSelection = new List<Object>();
@@ -753,7 +802,7 @@ namespace Bears
             Selection.objects = newSelection.ToArray();
         }
 
-        [Shortcut("Krillbite/Shortcuts/Select/Select Parent", KeyCode.C, ShortcutModifiers.Alt)]
+        [Shortcut("Bears/Select/Select Parent", KeyCode.C, ShortcutModifiers.Alt)]
         public static void SelectParent()
         {
             List<Object> newSelection = new List<Object>();
@@ -774,17 +823,49 @@ namespace Bears
             Selection.objects = newSelection.ToArray();
         }
 
-        [Shortcut("Krillbite/Shortcuts/Create New Parent", KeyCode.P, ShortcutModifiers.Shift | ShortcutModifiers.Alt)]
+        public static Transform[] GetSelectedTransformsOrdered()
+        {
+            return
+                Selection.transforms
+                    .OrderBy(t => t.parent
+                        ? t.parent.GetSiblingIndex() // order by sibling index
+                        : t.gameObject.scene.GetRootGameObjects().ToList().IndexOf(t.gameObject))
+                    .ThenBy(t => t.GetSiblingIndex())
+                    .ToArray(); // or root index
+        }
+        
+        public static Transform[] GetDeepSelectedTransformsOrdered(bool reverse = false)
+        {
+            var sortedArray = 
+                Selection.gameObjects
+                    .Where(go => go.scene.IsValid())
+                    .Select(go => go.transform)
+                    .OrderByPositionInHierarchy()
+                    .ToArray();
+
+            if (reverse)
+                sortedArray = sortedArray.Reverse().ToArray();
+
+            return sortedArray;
+        }
+
+
+        [Shortcut("Bears/Create New Parent", KeyCode.P, ShortcutModifiers.Shift | ShortcutModifiers.Alt)]
         public static void CreateNewParent()
         {
             var parentTarget = Selection.activeGameObject;
 
+            var transforms = GetSelectedTransformsOrdered();
+            
             var newParent = new GameObject(parentTarget.name + " PARENT").transform;
             newParent.transform.parent = parentTarget.transform.parent;
             newParent.transform.position = parentTarget.transform.position;
+            
+            newParent.SetSiblingIndex(transforms[0].GetSiblingIndex());
+            
             Undo.RegisterCreatedObjectUndo(newParent.gameObject, "Parent Selected To New");
 
-            foreach (var transform in Selection.transforms)
+            foreach (var transform in transforms)
             {
                 Undo.SetTransformParent(transform, newParent, "Parent Selected To New");
             }
@@ -807,7 +888,7 @@ namespace Bears
             }
         }
 
-        [Shortcut("Krillbite/Shortcuts/Select/Prefab Parent", KeyCode.C, ShortcutModifiers.Shift | ShortcutModifiers.Alt)]
+        [Shortcut("Bears/Select/Prefab Parent", KeyCode.C, ShortcutModifiers.Shift | ShortcutModifiers.Alt)]
         public static void SelectPrefabParent()
         {
             List<Object> newSelection = new List<Object>();
@@ -826,27 +907,34 @@ namespace Bears
             Selection.objects = newSelection.ToArray();
         }
 
-        [Shortcut("Krillbite/Shortcuts/Select/Siblings", KeyCode.Z, ShortcutModifiers.Alt)]
+        [Shortcut("Bears/Select/Siblings", KeyCode.Z, ShortcutModifiers.Alt)]
         public static void SelectSiblingsFromSelected()
         {
-            List<Object> newSelection = new List<Object>();
+            List<GameObject> newSelection = new List<GameObject>();
             Transform[] selection = Selection.transforms;
 
-            foreach (Transform go in selection)
+            foreach (Transform t in selection)
             {
-                if (go.parent)
+                if (newSelection.Contains(t.gameObject))
+                    continue;
+                
+                if (t.parent)
                 {
-                    foreach (Transform child in go.parent)
+                    foreach (Transform child in t.parent)
                     {
                         newSelection.Add(child.gameObject);
                     }
+                }
+                else
+                {
+                    newSelection.AddRange(t.gameObject.scene.GetRootGameObjects());
                 }
             }
 
             Selection.objects = newSelection.ToArray();
         }
 
-        [Shortcut("Krillbite/Shortcuts/Select/Children", KeyCode.X, ShortcutModifiers.Alt)]
+        [Shortcut("Bears/Select/Children", KeyCode.X, ShortcutModifiers.Alt)]
         public static void SelectChildrenOfSelected()
         {
             List<Object> newSelection = new List<Object>();
@@ -861,7 +949,7 @@ namespace Bears
                 }
             }
 
-            foreach (var scene in GetSelectedScenes())
+            foreach (var scene in EditorSceneUtility.GetSelectedScenes())
             {
                 if (!scene.IsValid()) continue;
                 if (!scene.isLoaded) continue;
@@ -875,7 +963,7 @@ namespace Bears
             Selection.objects = newSelection.ToArray();
         }
 
-//	[Shortcut("Krillbite/Shortcuts/Select/Wall " + BearsHotkeys.SelectWal)]
+//	[Shortcut("Bears/Select/Wall " + BearsHotkeys.SelectWal)]
         public static void SelectWall()
         {
             List<Object> newSelection = new List<Object>();
@@ -943,7 +1031,6 @@ namespace Bears
 
         private static Transform[] cutObjects;
 
-        
         [Shortcut("GameObject/Shortcuts/Move Tagged Objects", KeyCode.V, ShortcutModifiers.Action | ShortcutModifiers.Shift)]
         public static void MoveCutObjects()
         {
@@ -954,37 +1041,40 @@ namespace Bears
 
             Transform parent = Selection.activeTransform;
 
-            if (parent == null)
+            if (parent)
             {
-                var scene = GetSceneFromInstanceID(Selection.activeInstanceID);
-
-                if (scene.IsValid())
+                foreach (Transform t in cutObjects)
                 {
-                    foreach (var t in cutObjects)
+                    if (Application.isPlaying)
                     {
-                        EditorSceneManager.MarkSceneDirty(t.gameObject.scene);
-                        
-                        Undo.SetTransformParent(t, null, "Move Objects");
-                        Undo.MoveGameObjectToScene(t.gameObject, scene, "Move Objects");
+                        t.SetParent(parent);
                     }
-                    
-                    EditorSceneManager.MarkSceneDirty(scene);
+                    else
+                    {
+                        Undo.SetTransformParent(t, parent, "Move Objects");
+                        EditorSceneManager.MarkSceneDirty(parent.gameObject.scene);
+                    }
                 }
             }
             else
             {
-                foreach (Transform t in cutObjects)
-                {
-                    if (t.gameObject.scene != parent.gameObject.scene)
-                    {
-                        EditorSceneManager.MarkSceneDirty(t.gameObject.scene);
-                        
-                        Undo.SetTransformParent(t, null, "Move Objects");
-                        Undo.MoveGameObjectToScene(t.gameObject, parent.gameObject.scene, "Move Objects");
-                    }
+                var scene = EditorSceneUtility.GetSceneFromInstanceID(Selection.activeInstanceID);
 
-                    EditorSceneManager.MarkSceneDirty(parent.gameObject.scene);
-                    Undo.SetTransformParent(t, parent, "Move Objects");
+                if (scene.IsValid())
+                {
+                    foreach (Transform t in cutObjects)
+                    {
+                        if (Application.isPlaying)
+                        {
+                            t.SetParent(null);
+                            SceneManager.MoveGameObjectToScene(t.gameObject, scene);
+                        }
+                        else
+                        {
+                            Undo.MoveGameObjectToScene(t.gameObject, scene, "Move Objects");
+                            EditorSceneManager.MarkSceneDirty(scene);
+                        }
+                    }
                 }
             }
 
@@ -992,10 +1082,11 @@ namespace Bears
             Selection.objects = cutObjects.Select(t => t.gameObject).ToArray();
         }
 
+
         [Shortcut("GameObject/Shortcuts/Tag Selection For Move", KeyCode.X, ShortcutModifiers.Action | ShortcutModifiers.Shift)]
         public static void CutSelection()
         {
-            cutObjects = Selection.transforms;
+            cutObjects = GetSelectedTransformsOrdered();//Selection.transforms.OrderBy(t => t.GetSiblingIndex()).ToArray();
         }
 
         private static EditorWindow _gameView;
@@ -1023,7 +1114,7 @@ namespace Bears
             }
         }
 
-        [Shortcut("Krillbite/Shortcuts/Toggle Game View Maximized", KeyCode.F, ShortcutModifiers.Action)]
+        [Shortcut("Bears/Toggle Game View Maximized", KeyCode.F, ShortcutModifiers.Action)]
         public static void ToggleGameViewMaximized()
         {
             // 16 nov 2016
@@ -1047,7 +1138,7 @@ namespace Bears
                 }
                 else
                 {
-                    Scene scene = GetSceneFromInstanceID(instanceID);
+                    Scene scene = EditorSceneUtility.GetSceneFromInstanceID(instanceID);
 
                     if (scene.IsValid())
                     {
@@ -1067,13 +1158,6 @@ namespace Bears
             }
         }
 
-        /*
-        [Shortcut("Krillbite/Shortcuts/Take Screenshot")]
-        public static void ScreenshotFromEditor()
-        {
-            Screenshotter.TakeScreenshot();
-        }
-        */
 
         public static void LiftDecal()
         {
@@ -1218,121 +1302,73 @@ namespace Bears
                 }
                 else
                 {
-                    Debug.Log(string.Format("Collider not found on GameObject: {0}", go.name));
+                    Debug.Log($"Collider not found on GameObject: {go.name}");
                 }
             }
         }
-
-        private struct StoredTransform
+        
+        private static void ResetTransformWithoutAffectingChildren(Transform[] targets, bool position = true, bool rotation = true, bool scale = true)
         {
-            public Matrix4x4 matrix;
+            targets = targets.OrderByPositionInHierarchy().Reverse().ToArray();
 
-            public Vector3 worldPosition;
-            public Quaternion worldRotation;
-            public Vector3 oldLocalScale;
-            public Vector3 oldParentLocalScale;
-
-            public Transform proxyTransform;
-            public Transform parentTransform;
-
-            public StoredTransform(Transform t)
+            foreach (var transform in targets)
             {
-                this.matrix = t.worldToLocalMatrix;
-                worldPosition = t.position;
-                worldRotation = t.rotation;
-                oldLocalScale = t.localScale;
-                oldParentLocalScale = t.parent ? t.parent.localScale : Vector3.one;
-
-                parentTransform = t.parent;
-
-                proxyTransform = new GameObject("__TEMP_RESET_TRANSFORM_" + t.name).transform;
-                Undo.RegisterCreatedObjectUndo(proxyTransform.gameObject, "Reset Transform");
-
-                proxyTransform.SetParent(t.parent, false);
-                proxyTransform.position = t.position;
-                proxyTransform.rotation = t.rotation;
-                proxyTransform.localScale = t.localScale;
-
-                proxyTransform.SetParent(null, true);
-
-//			proxyTransform = 
+                Debug.Log(transform, transform);
             }
-
-            public void ApplyWithMatrix(Transform t)
-            {
-                t.localPosition = matrix.MultiplyPoint(Vector3.zero);
-                t.localRotation = Quaternion.LookRotation(matrix.MultiplyVector(Vector3.forward));
-                t.localScale = matrix.MultiplyVector(Vector3.one);
-            }
-
-            public void ApplyWithCachedValues(Transform t, bool position, bool rotation, bool scale)
-            {
-                if (position)
-                    t.position = worldPosition;
-
-                if (rotation)
-                    t.rotation = worldRotation;
-
-                if (scale)
-                {
-                    var s = oldLocalScale;
-                    s.Scale(oldParentLocalScale);
-                    t.localScale = s;
-                }
-            }
-
-            public void ApplyWithTransform(Transform t, bool position, bool rotation, bool scale)
-            {
-                proxyTransform.SetParent(parentTransform, true);
-                if (position)
-                    t.position = proxyTransform.position;
-
-                if (rotation)
-                    t.rotation = proxyTransform.rotation;
-
-                if (scale)
-                {
-                    t.localScale = proxyTransform.localScale;
-                }
-
-                Object.DestroyImmediate(proxyTransform.gameObject);
-            }
-        }
-
-        public static void ResetTransformWithoutAffectingChildren(Transform[] targets, bool position = true, bool rotation = true, bool scale = true)
-        {
+            
             foreach (var target in targets)
             {
-                if (target == null || (!position && !rotation && !scale)) return;
-
-                Undo.RecordObject(target, "Reset Transform");
-
-                List<Transform> children = new List<Transform>();
+                var  parent    = target.parent;
+                bool hasParent = parent != null;
                 
-                foreach (Transform child in target)
-                {
-                    children.Add(child);
-                }
-
-                Dictionary<Transform, StoredTransform> originalMatrices = children.ToDictionary(t => t, t => new StoredTransform(t));
-
-                foreach (var t in children)
-                {
-                    Undo.RecordObject(t, "Reset Transform");
-                }
-
-                if (position) target.localPosition = Vector3.zero;
-                if (rotation) target.localRotation = Quaternion.identity;
-                if (scale) target.localScale = Vector3.one;
-
-                foreach (var t in originalMatrices.Keys)
-                {
-                    originalMatrices[t].ApplyWithTransform(t, position, rotation, scale);
-                }
+                /*
+                target.SetLocalTransformWithoutAffectingChildren(
+                    position ? hasParent ? parent.position : -target.localPosition : Vector3.zero,
+                    rotation ? hasParent ? parent.rotation : target.localRotation. : Quaternion.identity,
+                    scale ? Vector3.one : target.localScale
+                    );
+                */
+                
+                target.SetTransformWithoutAffectingChildren(
+                    position ? hasParent ? parent.position : Vector3.zero : target.position,
+                    rotation ? hasParent ? parent.rotation : Quaternion.identity : target.rotation,
+                    scale ? hasParent ? parent.LocToWorldScale(Vector3.one) : Vector3.one : target.localScale
+                    );
             }
         }
 
-        [MenuItem("GameObject/Tools/Sort Selected Transforms By Name")]
+        private static Vector3 AltLossyScale(this Transform t)
+        {
+            if (!t.parent)
+                return t.localScale;
+
+            Debug.Log("Lossy Scale: " + t.lossyScale);
+            var totalScale = Vector3.one;
+            while (t.parent)
+            {
+                totalScale.Scale(t.localScale);
+                t = t.parent;
+            }
+
+            Debug.Log("Alternative Lossy Scale: "  + totalScale);
+            return totalScale;
+        }
+        private static Vector3 LocToWorldScale(this Transform t, Vector3 localScaleToConvert)
+        {
+            if (!t.parent)
+                return localScaleToConvert;
+
+            var totalScale = localScaleToConvert;
+            while (t.parent)
+            {
+                totalScale.Scale(t.localScale);
+                t = t.parent;
+            }
+
+            return totalScale;
+        }
+
+        [MenuItem("GameObject/Sorting/Sort Selected Transforms By Name")]
         public static void SortTransformsInHierarchy()
         {
             var transforms = Selection.transforms.ToList();
@@ -1387,7 +1423,7 @@ namespace Bears
         [Shortcut("GameObject/Tools/Reveal Selection In Project", KeyCode.F, ShortcutModifiers.Alt)]
         public static void RevealSelectionInProject()
         {
-            var scenes = GetSelectedScenes();
+            var scenes = EditorSceneUtility.GetSelectedScenes();
             if (scenes.Length > 0)
             {
                 EditorGUIUtility.PingObject(AssetDatabase.LoadAssetAtPath(scenes[0].path, typeof(object)));
@@ -1396,21 +1432,26 @@ namespace Bears
 
             if (Selection.activeGameObject == null) return;
 
-            UnityEngine.Object prefab = PrefabUtility.GetCorrespondingObjectFromSource(Selection.activeGameObject);
+            var path = PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(Selection.activeGameObject);
+
+            if (string.IsNullOrEmpty(path))
+            {
+                return;
+            }
+            
+            Object prefab = AssetDatabase.LoadAssetAtPath<Object>(path);
 
             if (prefab != null)
             {
                 Selection.objects = new[] {prefab};
-                //EditorGUIUtility.PingObject();
             }
         }
-
 
         private static AnimatorStateTransition[] copyAnimatorStateTransitions;
         private static AnimatorTransition[] copyAnimatorTransitions;
         private static AnimatorCondition[] copyAnimatorConditions;
 
-//	[MenuItem("Krillbite/Shortcuts/Animator/Copy Animator Transition " + BearsHotkeys.CopyAnimatorTransition)]
+//	[MenuItem("Bears/Animator/Copy Animator Transition " + BearsHotkeys.CopyAnimatorTransition)]
         private static void CopyAnimatorTransition()
         {
             Debug.Log("Selected: " + Selection.activeObject);
@@ -1431,7 +1472,7 @@ namespace Bears
             }
         }
 
-//	[MenuItem("Krillbite/Shortcuts/Animator/Paste Animator Transition " + BearsHotkeys.PasteAnimatorTransition)]
+//	[MenuItem("Bears/Animator/Paste Animator Transition " + BearsHotkeys.PasteAnimatorTransition)]
         private static void PasteAnimatorTransition()
         {
             var sel = Selection.activeObject;
@@ -1470,7 +1511,7 @@ namespace Bears
             }
         }
 
-//	[MenuItem("Krillbite/Shortcuts/Animator/Make Transition Instant " + BearsHotkeys.SetAnimatorTransitionInstant)]
+//	[MenuItem("Bears/Animator/Make Transition Instant " + BearsHotkeys.SetAnimatorTransitionInstant)]
         private static void SetAnimatorTransitionsInstant()
         {
             foreach (var obj in Selection.objects)
@@ -1487,7 +1528,7 @@ namespace Bears
             }
         }
 
-//    [MenuItem("Krillbite/Shortcuts/Animator/Make Transition Wait For End " + BearsHotkeys.SetAnimatorTransitionWaitForEnd)]
+//    [MenuItem("Bears/Animator/Make Transition Wait For End " + BearsHotkeys.SetAnimatorTransitionWaitForEnd)]
         private static void SetAnimatorTransitionsWaitForEnd()
         {
             foreach (var obj in Selection.objects)
@@ -1504,7 +1545,7 @@ namespace Bears
             }
         }
 
-//	[MenuItem("Krillbite/Shortcuts/Animator/Copy Animator Condition " + BearsHotkeys.CopyAnimatorCondition)]
+//	[MenuItem("Bears/Animator/Copy Animator Condition " + BearsHotkeys.CopyAnimatorCondition)]
         private static void CopyAnimatorCondition()
         {
             var transition = Selection.activeObject as AnimatorTransitionBase;
@@ -1515,7 +1556,7 @@ namespace Bears
             }
         }
 
-//	[MenuItem("Krillbite/Shortcuts/Animator/Paste Animator Condition " + BearsHotkeys.PasteAnimatorCondition)]
+//	[MenuItem("Bears/Animator/Paste Animator Condition " + BearsHotkeys.PasteAnimatorCondition)]
         private static void PasteAnimatorCondition()
         {
             foreach (var transition in Selection.objects.OfType<AnimatorTransitionBase>())
@@ -1524,17 +1565,87 @@ namespace Bears
                 transition.conditions = copyAnimatorConditions;
             }
         }
-
-        [MenuItem("Krillbite/Unity Internal/Unload Unused Assets")]
+        
+        [MenuItem("Bears/Internal/EditorUtility.UnloadUnusedAssetsImmediate()")]
         private static void UnloadUnusedAssets()
         {
             EditorUtility.UnloadUnusedAssetsImmediate();
         }
 
-        [MenuItem("Krillbite/Unity Internal/Clear Progress Bar")]
+        [MenuItem("Bears/Internal/EditorUtility.ClearProgressBar()")]
         private static void ClearProgressBar()
         {
             EditorUtility.ClearProgressBar();
         }
+        
+        [MenuItem("Bears/Internal/AssetDatabase.StopAssetEditing()")]
+        private static void StopAssetEditing()
+        {
+            AssetDatabase.StopAssetEditing();
+        }
+
+        #region gizmos
+
+        // From here https://answers.unity.com/questions/851470/how-to-hide-gizmos-by-script.html
+        private static MethodInfo _setIconEnabled;
+
+#if UNITY_2020_2_OR_NEWER // needed this due to ??= operator below here. Quickfix! TODO: Make it nicer.
+        private static MethodInfo SetIconEnabled => _setIconEnabled ??= Assembly.GetAssembly(typeof(Editor))
+            ?.GetType("UnityEditor.AnnotationUtility")
+            ?.GetMethod("SetIconEnabled", BindingFlags.Static | BindingFlags.NonPublic);
+
+        public static void SetGizmoIconEnabled(Type type, bool on)
+        {
+            if (SetIconEnabled == null) return;
+            const int MONO_BEHAVIOR_CLASS_ID = 114; // https://docs.unity3d.com/Manual/ClassIDReference.html
+            SetIconEnabled.Invoke(null, new object[] {MONO_BEHAVIOR_CLASS_ID, type.Name, on ? 1 : 0});
+        }
+
+        // private static bool _sceneViewGizmosEnabled = false; // TODO: Fetch from actual state.
+        
+        [Shortcut("Bears/Toggle Gizmos In Scene View", KeyCode.G, ShortcutModifiers.Shift)]
+        public static void ToggleSceneViewGizmos()
+        {
+            SceneView.lastActiveSceneView.drawGizmos = !SceneView.lastActiveSceneView.drawGizmos;
+
+            // _sceneViewGizmosEnabled = !_sceneViewGizmosEnabled;
+            // SetSceneViewGizmosEnabled(_sceneViewGizmosEnabled);
+        }
+        
+#endif
+        // public static void SetSceneViewGizmosEnabled(bool gizmosOn)
+        // {
+        // }
+        
+        /*
+        public static void SetSceneViewGizmosEnabled(bool gizmosOn)
+        {
+            int enabled = gizmosOn ? 1 : 0;
+            Assembly asm = Assembly.GetAssembly(typeof(Editor));
+            Type type = asm.GetType("UnityEditor.AnnotationUtility");
+            if (type != null)
+            {
+                MethodInfo getAnnotations = type.GetMethod("GetAnnotations", BindingFlags.Static | BindingFlags.NonPublic);
+                MethodInfo setGizmoEnabled = type.GetMethod("SetGizmoEnabled", BindingFlags.Static | BindingFlags.NonPublic);
+                MethodInfo setIconEnabled = type.GetMethod("SetIconEnabled", BindingFlags.Static | BindingFlags.NonPublic);
+                var annotations = getAnnotations.Invoke(null, null);
+                foreach (object annotation in (IEnumerable)annotations)
+                {
+                    Type annotationType = annotation.GetType();
+                    FieldInfo classIdField = annotationType.GetField("classID", BindingFlags.Public | BindingFlags.Instance);
+                    FieldInfo scriptClassField = annotationType.GetField("scriptClass", BindingFlags.Public | BindingFlags.Instance);
+                    if (classIdField != null && scriptClassField != null)
+                    {
+                        int classId = (int)classIdField.GetValue(annotation);
+                        string scriptClass = (string)scriptClassField.GetValue(annotation);
+                        setGizmoEnabled.Invoke(null, new object[] { classId, scriptClass, enabled, false });
+                        setIconEnabled.Invoke(null, new object[] { classId, scriptClass, enabled});
+                    }
+                }
+            }
+        }
+        */
+
+        #endregion
     }
 }
