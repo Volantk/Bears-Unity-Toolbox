@@ -768,19 +768,13 @@ namespace BearsEditorTools
 
         private static GameObject GetMainCamera()
         {
-            GameObject camera = null;
-
-            if (Camera.main != null)
+            if (Camera.main)
             {
-                camera = Camera.main.gameObject;
+                return Camera.main.gameObject;
             }
-
-            if (camera != null)
-            {
-                return camera;
-            }
-
-            return camera.GetComponentInChildren<Camera>()?.gameObject;
+            
+            Debug.LogWarning("No main camera found, returning null.");
+            return null;
         }
 
         [Shortcut("Bears/Select/Deselect Random")]
