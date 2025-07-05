@@ -1,6 +1,6 @@
 {
   "name": "no.bears.unitytools",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "displayName": "Bear's Unity Toolbox",
   "description": "Small, self-contained collection of editor productivity tools.",
   "unity": "2022.3",
