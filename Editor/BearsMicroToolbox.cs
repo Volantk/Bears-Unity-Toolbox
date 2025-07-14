@@ -1389,14 +1389,16 @@ namespace BearsEditorTools
             }
         }
 
-        [Shortcut("GameObject/Tools/Reveal Mesh In Project", KeyCode.F, ShortcutModifiers.Alt | ShortcutModifiers.Shift)]
+        [Shortcut("GameObject/Tools/Reveal Mesh Or Sprite In Project", KeyCode.F, ShortcutModifiers.Alt | ShortcutModifiers.Shift)]
         public static void RevealMeshLocationInProject()
         {
             if (Selection.activeGameObject == null) return;
 
-            if (Selection.activeGameObject.GetComponentsInChildren<MeshFilter>().Length > 0)
+            var meshFilters = Selection.activeGameObject.GetComponentsInChildren<MeshFilter>();
+            
+            if (meshFilters.Length > 0)
             {
-                MeshFilter meshFilter = Selection.activeGameObject.GetComponentsInChildren<MeshFilter>().First(mesh => AssetDatabase.GetAssetPath(mesh.sharedMesh) != "Library/unity default resources");
+                MeshFilter meshFilter = meshFilters.First(mesh => AssetDatabase.GetAssetPath(mesh.sharedMesh) != "Library/unity default resources");
 
                 if (meshFilter != null)
                 {
@@ -1412,6 +1414,20 @@ namespace BearsEditorTools
                 EditorGUIUtility.PingObject(skinnedMesh.sharedMesh);
                 return;
             }
+            
+            var spriteRenderers = Selection.activeGameObject.GetComponentsInChildren<SpriteRenderer>();
+            
+            if (spriteRenderers.Length > 0)
+            {
+                SpriteRenderer spriteRenderer = spriteRenderers.First(sprite => AssetDatabase.GetAssetPath(sprite.sprite) != "Library/unity default resources");
+
+                if (spriteRenderer != null)
+                {
+                    EditorGUIUtility.PingObject(spriteRenderer.sprite);
+                    return;
+                }
+            }
+   
         }
 
         [Shortcut("GameObject/Tools/Reveal Selection In Project", KeyCode.F, ShortcutModifiers.Alt)]
