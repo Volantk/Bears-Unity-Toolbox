@@ -416,7 +416,6 @@ namespace BearsEditorTools
                 
                 bool isCurrentSelected = selectionID == i;
 
-                var split = scene.path.Split('/');
                 string displayedName = $"{scene.name}";
 
                 GUIContent label = new GUIContent(displayedName);
