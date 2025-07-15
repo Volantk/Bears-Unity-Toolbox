@@ -39,7 +39,7 @@ namespace BearsEditorTools
 
 //        private SceneOpenerMode mode;
 
-        const float WindowWidth = 300;
+        const float WindowWidth = 400;
 
         [Shortcut("Bears/QuickTools/Quick Scene Opener", KeyCode.S, ShortcutModifiers.Alt | ShortcutModifiers.Shift)]
         public static void OpenWindow()
@@ -268,7 +268,8 @@ namespace BearsEditorTools
 
         private void OpenAdditive(int index)
         {
-            EditorSceneManager.OpenScene(filteredScenes.Values.ElementAt(index).path, OpenSceneMode.Additive);
+            string scenePath = filteredScenes.Values.ElementAt(index).path;
+            EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
         }
 
         private void RemoveFromLoaded(int index)
@@ -392,7 +393,7 @@ namespace BearsEditorTools
                     lastHeader = scene.directory;
                     GUI.color = headerColor;
                     
-                    EditorGUI.LabelField(headerRect, scene.directory, EditorStyles.miniLabel);
+                    EditorGUI.LabelField(headerRect, new GUIContent(scene.directory, scene.directory), EditorStyles.miniLabel);
                     i--; // Skip the next iteration, since we already processed this scene.
                     
                     GUILayout.Space(3);
@@ -400,16 +401,19 @@ namespace BearsEditorTools
                     continue;
                 }
 
-
-                Rect rect = EditorGUILayout.GetControlRect(GUILayout.Height(13));
+                const float lineHeight = 13;
+                Rect rect = EditorGUILayout.GetControlRect(GUILayout.Height(lineHeight));
+                
+                Rect infoRect = rect;
+                infoRect.width = lineHeight;
+                // if loaded, show checkmark
+                EditorGUI.LabelField(infoRect, scene.scene.isLoaded ? "✔" : "", EditorStyles.miniLabel);
 
                 GUI.color = Color.white;
 
-                rect.x += 10;
-                // rect.width -= 10;
+                rect.x += lineHeight;
+                rect.width -= lineHeight;
 
-                rect.width += 27; // somehow this is needed to make rect fill the whole size... Unsure why, no need to find out right now/.
-                
                 const float buttonWidth = 18f;
                 const float allButtonWidth = buttonWidth * 3;
                 rect.width -= allButtonWidth;
@@ -435,29 +439,32 @@ namespace BearsEditorTools
                     //OpenAdditive(i);
                 }
                 
-                // TODO: Fix this rect, it is offset by some pixels to the left. Migraine is on the way, so taking a break.
                 Rect rightRect = rect;
                 rightRect.x += rect.width;
                 rightRect.width = buttonWidth;
 
-                // Draw test box
-                if (GUI.Button(rightRect, "↷", EditorStyles.miniButtonMid))
-                {
-                    OpenReplace(i);
-                }
                 
-                rightRect.x -= rightRect.width;
-                GUI.enabled = scene.scene.isLoaded;
-                if (GUI.Button(rightRect, "-", EditorStyles.miniButtonMid))
-                {
-                    RemoveFromLoaded(i);
-                }
-                
-                rightRect.x -= rightRect.width;
-                GUI.enabled = true;
-                if (GUI.Button(rightRect, "+", EditorStyles.miniButtonLeft))
+                if (GUI.Button(rightRect, new GUIContent("+", "Open this scene additively"), EditorStyles.miniButtonRight))
                 {
                     OpenAdditive(i);
+                    FindScenes();
+                }
+
+                rightRect.x += rightRect.width;
+                GUI.enabled = scene.scene.isLoaded && EditorSceneManager.loadedRootSceneCount > 1;
+                if (GUI.Button(rightRect, new GUIContent("-", "Remove this scene from the loaded scenes"), EditorStyles.miniButtonMid))
+                {
+                    RemoveFromLoaded(i);
+                    FindScenes();
+                }
+                GUI.enabled = true;
+
+                rightRect.x += rightRect.width;
+                
+                if (GUI.Button(rightRect, new GUIContent("↷", "Replace all scenes with this one"), EditorStyles.miniButtonLeft))
+                {
+                    OpenReplace(i);
+                    FindScenes();
                 }
 
                 EditorGUILayout.EndHorizontal();
