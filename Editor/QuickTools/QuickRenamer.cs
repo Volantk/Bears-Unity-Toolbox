@@ -14,6 +14,7 @@ namespace BearsEditorTools
         private string renameToString = "";
 
         private const string key_NameOfSelf = "..";
+        private const string key_NameOfData = "||";
         private const string key_ParentName = ",,";
         private const string key_Rename = "R::";
         private const string key_RootName = "^";
@@ -43,6 +44,7 @@ namespace BearsEditorTools
                 windowRect.y = Screen.height * 0.5f - windowRect.height * 0.5f;
             }
 
+            windowRect.height = 300;
             window.position = windowRect;
         }
 
@@ -77,41 +79,66 @@ namespace BearsEditorTools
             EditorGUI.BeginChangeCheck();
             EditorGUILayout.BeginHorizontal();
 
-            EditorGUILayout.LabelField("Rename", GUILayout.Width(60.0f));
-
             GUI.SetNextControlName(TextFieldControlName);
-            renameToString = EditorGUILayout.TextField(renameToString);
+            var inputRect = EditorGUILayout.GetControlRect();
+            renameToString = EditorGUI.TextField(inputRect, renameToString);
+
+            if (string.IsNullOrEmpty(renameToString))
+            {
+                // Show gray placeholder text
+                GUI.color = Color.gray;
+                var placeholderRect = inputRect;
+                placeholderRect.x += 5; // Offset for better visibility
+                EditorGUI.LabelField(placeholderRect, "Enter new name here...", EditorStyles.label);
+                GUI.color = Color.white;
+            }
             //Always want to focus the text field, nothing else.
             EditorGUI.FocusTextInControl(TextFieldControlName);
 
             EditorGUILayout.EndHorizontal();
             EditorGUI.EndChangeCheck();
 
+            GUILayout.Space(4);
             EditorGUILayout.BeginVertical();
-            var rect = EditorGUILayout.GetControlRect();
-            rect.height *= 6f;
-            EditorGUI.LabelField(rect, string.Format("This will rename all selected GameObjects.\n" +
-                                                     "{0} = insert current name\n" +
-                                                     "{1} = number (will name objects 01, 02, 03, etc.)\n" +
-                                                     "{2} = insert parent name\n" +
-                                                     "{3} = insert root name\n" +
-                                                     "{4}find,replace = Find&Replace syntax\n",
-                key_NameOfSelf, key_Enumerate, key_ParentName, key_RootName, key_Rename));
+            
+            Rect contentRect = EditorGUILayout.GetControlRect(GUILayout.Height(EditorGUIUtility.singleLineHeight * 5f));
+            
+            GUI.Box(contentRect, "", "box");
 
-            rect.y += rect.height;
-            rect.height /= 3f;
-            EditorGUI.LabelField(rect, "Preview:");
-            rect.y += rect.height;
-
-            //string textfield = "";
-
-
-            EditorGUI.LabelField(rect,
-                Selection.objects.Length > 0
-                    ? ParseInput(Selection.objects[0], renameToString, false)
-                    : "Renaming scene, can't preview");
+            var style = new GUIStyle(EditorStyles.label)
+            {
+                richText = true
+            };
+            
+            EditorGUI.LabelField(contentRect,
+                "This will rename all selected GameObjects.\n" +
+                $"  <color=yellow>{key_NameOfSelf}</color> Insert current name\n" +
+                $"  <color=yellow>{key_NameOfData}</color> Insert data name (e.g. for a mesh or sprite)\n" +
+                $"  <color=yellow>{key_Enumerate}</color> Insert numbering (01, 02, 03...)\n" +
+                $"  <color=yellow>{key_ParentName}</color> Insert parent name\n" +
+                $"  <color=yellow>{key_RootName}</color> Insert root name\n" +
+                $"  <color=yellow>{key_Rename}<old>;<new></color> Find & Replace\n",
+                style);
 
             EditorGUILayout.EndVertical();
+
+            EditorGUILayout.LabelField("Result", EditorStyles.miniLabel);
+            
+            GUIStyle labelStyle = new GUIStyle(EditorStyles.whiteLargeLabel)
+            {
+                wordWrap = true,
+                clipping = TextClipping.Overflow
+            };
+            
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("Old:", EditorStyles.miniLabel, GUILayout.Width(20));
+            EditorGUILayout.LabelField($"{(Selection.objects.Length > 0 ? Selection.objects[0].name : "")}", labelStyle);
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("New:", EditorStyles.miniLabel, GUILayout.Width(20));
+            EditorGUILayout.LabelField(Selection.objects.Length > 0 ? ParseInput(Selection.objects[0], renameToString, false) : "", labelStyle);
+            EditorGUILayout.EndHorizontal();
         }
 
         private void HandleInput()
@@ -127,14 +154,14 @@ namespace BearsEditorTools
             {
                 this.Close();
             }
-            else if (current.keyCode == KeyCode.Return && current.control)
+            else if ((current.keyCode == KeyCode.Return || current.keyCode == KeyCode.KeypadEnter) && current.control)
             {
                 // Close immediately if Ctrl+Enter is pressed
 
                 this.Close();
                 RenameSelection();
             }
-            else if (current.keyCode == KeyCode.Return)
+            else if (current.keyCode == KeyCode.Return || current.keyCode == KeyCode.KeypadEnter)
             {
                 RenameSelection();
             }
@@ -154,6 +181,8 @@ namespace BearsEditorTools
                 input = DoRename(input, go);
 
                 input = DoAddNameOfSelf(input, go);
+                
+                input = DoAddMeshOrSpriteName(input, go);
 
                 input = DoAddParentName(input, go);
 
@@ -260,6 +289,27 @@ namespace BearsEditorTools
 
             return input;
         }
+        
+        private string DoAddMeshOrSpriteName(string input, GameObject go)
+        {
+            if (input.Contains(key_NameOfData))
+            {
+                if (go.TryGetComponent(out MeshFilter meshFilter) && meshFilter.sharedMesh)
+                {
+                    input = input.Replace(key_NameOfData, meshFilter.sharedMesh.name);
+                }
+                else if (go.TryGetComponent(out SkinnedMeshRenderer skinnedMeshRenderer) && skinnedMeshRenderer.sharedMesh)
+                {
+                    input = input.Replace(key_NameOfData, skinnedMeshRenderer.sharedMesh.name);
+                } 
+                else if (go.TryGetComponent(out SpriteRenderer spriteRenderer) && spriteRenderer.sprite)
+                {
+                    input = input.Replace(key_NameOfData, spriteRenderer.sprite.name);
+                }
+            }
+
+            return input;
+        }
 
         private string DoAddParentName(string input, GameObject go)
         {
@@ -271,7 +321,7 @@ namespace BearsEditorTools
                 }
                 else
                 {
-                    input = input.Replace(key_ParentName, "Area");
+                    input = input.Replace(key_ParentName, "Root");
                 }
             }
 
