@@ -1,13 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using BearsEditorTools;
 using UnityEngine;
 using Object = UnityEngine.Object;
 using TriInspector;
 using UnityEditor;
 
-namespace Bears
+namespace BearsEditorTools
 {
     [CreateAssetMenu(fileName = "New Favorites Collection", menuName = "Bears/Favorites Collection", order = 0)]
     public class FavoritesCollection : ScriptableObject
