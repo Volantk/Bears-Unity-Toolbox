@@ -1108,7 +1108,7 @@ namespace BearsEditorTools
             }
         }
 
-        [Shortcut("Bears/Toggle Game View Maximized", KeyCode.F, ShortcutModifiers.Action)]
+        [Shortcut("Bears/Toggle Game View Maximized", KeyCode.F, ShortcutModifiers.Action | ShortcutModifiers.Shift | ShortcutModifiers.Alt)]
         public static void ToggleGameViewMaximized()
         {
             // 16 nov 2016
