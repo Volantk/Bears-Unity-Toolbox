@@ -773,6 +773,26 @@ namespace BearsEditorTools
             {
                 return Camera.main.gameObject;
             }
+
+            var mainCameraNamed = GameObject.Find("Main Camera");
+            if (mainCameraNamed)
+            {
+                return mainCameraNamed;
+            }
+
+            var cameraNamed = GameObject.Find("Camera");
+            if (cameraNamed)
+            {
+                return cameraNamed;
+            }
+            
+            // Select the first camera in the scene
+            var camera = GameObject.FindObjectsOfType<Camera>().FirstOrDefault(c => c.enabled && c.gameObject.activeInHierarchy);
+            if (camera)
+            {
+                return camera.gameObject;
+            }
+            
             
             Debug.LogWarning("No main camera found, returning null.");
             return null;
