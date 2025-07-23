@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using Mono.Cecil;
 using UnityEditor.Animations;
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
@@ -1116,6 +1117,134 @@ namespace BearsEditorTools
             // "Invalid editor window UnityEditor.ConsoleWindow"
             // Debug logging GameView.name gives me "UnityEngine.Debug:Log(Object)". Related?
             GameView.maximized = !GameView.maximized;
+        }
+        
+        [Shortcut("Bears/Toggle Inspector Lock", KeyCode.Q, ShortcutModifiers.Alt)]
+        public static void ToggleInspectorLock()
+        {
+            var window = EditorWindow.focusedWindow;
+            if (!window)
+                return;
+            
+            // Get the InspectorWindow type using reflection
+            
+            var windowType = window.GetType();
+            string typeName = windowType.Name;
+            PropertyInfo isLockedProperty;
+            bool isLocked;
+            
+            switch (typeName)
+            {
+                case "InspectorWindow":
+                case "ProjectBrowser":
+                    isLockedProperty = windowType.GetProperty("isLocked" , BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public);
+                    
+                    isLocked = (bool) isLockedProperty.GetValue(window);
+                    isLockedProperty.SetValue(window, !isLocked);
+                    window.Repaint();
+                    break;
+                case "SceneHierarchyWindow":
+                    // get m_SceneHierarchy field, then get isLocked property from it
+                    var sceneHierarchyField = windowType.GetField("m_SceneHierarchy", BindingFlags.NonPublic | BindingFlags.Instance);
+                    if (sceneHierarchyField == null)
+                    {
+                        Debug.LogWarning("Could not find m_SceneHierarchy field on SceneHierarchyWindow.");
+                        return;
+                    }
+                    var sceneHierarchy = sceneHierarchyField.GetValue(window);
+                    if (sceneHierarchy == null)
+                    {
+                        Debug.LogWarning("SceneHierarchyWindow has no m_SceneHierarchy value.");
+                        return;
+                    }
+                    isLockedProperty = sceneHierarchy.GetType().GetProperty("isLocked", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public | BindingFlags.GetProperty);
+                    if (isLockedProperty == null)
+                    {
+                        Debug.LogWarning("Could not find isLocked property on SceneHierarchyWindow's m_SceneHierarchy.");
+                        return;
+                    }
+                    
+                    isLocked = (bool) isLockedProperty.GetValue(sceneHierarchy);
+                    isLockedProperty.SetValue(sceneHierarchy, !isLocked);
+                    window.Repaint();
+                    
+                    break;
+                case "TimelineWindow":
+                    PropertyInfo propertyInfo = window.GetType().GetProperty("locked");
+                    bool value = (bool)propertyInfo.GetValue(window, null);
+                    propertyInfo.SetValue(window, !value, null);
+                    window.Repaint();
+                    break;
+                case "AnimationWindow":
+                    // Uses lock tracker
+                    // Get field:  EditorGUIUtility.EditorLockTracker m_LockTracker
+                    // Set property: isLocked 
+                    FieldInfo lockTrackerField = windowType.GetField("m_LockTracker", BindingFlags.NonPublic | BindingFlags.Instance);
+                    if (lockTrackerField == null)
+                    {
+                        Debug.LogWarning("Could not find m_LockTracker field on AnimationWindow.");
+                        return;
+                    }
+                    var lockTracker = lockTrackerField.GetValue(window);
+                    if (lockTracker == null)
+                    {
+                        Debug.LogWarning("AnimationWindow has no m_LockTracker value.");
+                        return;
+                    }
+                    
+                    // // DEBUG: List all properties of the lock tracker
+                    // foreach (var prop in lockTracker.GetType().GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+                    // {
+                    //     Debug.Log("Lock Tracker Property: " + prop.Name);
+                    // }
+                    // islocked is a virtual property on the lock tracker
+                    PropertyInfo lockTrackerIsLockedProperty = lockTracker.GetType().GetProperty("isLocked", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                    if (lockTrackerIsLockedProperty == null)
+                    {
+                        Debug.LogWarning("Could not find isLocked property on AnimationWindow's m_LockTracker.");
+                        return;
+                    }
+                    isLocked = (bool) lockTrackerIsLockedProperty.GetValue(lockTracker);
+                    lockTrackerIsLockedProperty.SetValue(lockTracker, !isLocked);
+                    window.Repaint();
+ 
+                    break;
+                case "AnimatorControllerTool":
+                    // ignore if "animatorController" is not set
+                    
+                    PropertyInfo animatorControllerProperty = windowType.GetProperty("animatorController", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                    if (animatorControllerProperty == null)
+                    {
+                        Debug.LogWarning("Could not find animatorController property on AnimatorControllerTool.");
+                        return;
+                    }
+                    
+                    // if animator controller property has no reference, do nothing
+                    var animatorController = animatorControllerProperty.GetValue(window) as AnimatorController;
+                    if (animatorController == (UnityEngine.Object) null)
+                    {
+                        Debug.LogWarning("AnimatorControllerTool has no animatorController set.");
+                        return;
+                    }
+                    
+                    // foreach (var prop in windowType.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+                    // {
+                    //     Debug.Log($"{typeName} Property: " + prop.Name);
+                    // }
+                    PropertyInfo animatorControllerToolIsLockedProperty = windowType.GetProperty("isLocked", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                    if (animatorControllerToolIsLockedProperty == null)
+                    {
+                        Debug.LogWarning("Could not find isLocked property on AnimatorControllerTool.");
+                        return;
+                    }
+                    isLocked = (bool) animatorControllerToolIsLockedProperty.GetValue(window);
+                    animatorControllerToolIsLockedProperty.SetValue(window, !isLocked);
+                    window.Repaint();
+                    break;
+                default:
+                    Debug.Log("ToggleInspectorLock: Unsupported window type: " + typeName);
+                    break;
+            }
         }
 
         [Shortcut("GameObject/Tools/Toggle GameObjects", KeyCode.G, ShortcutModifiers.Action)]
