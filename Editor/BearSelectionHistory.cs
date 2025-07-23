@@ -121,13 +121,13 @@ namespace BearsEditorTools
             _SelectionHistory.AddToHistory(Selection.instanceIDs);
         }
 
-        [Shortcut("Bear/Selection/Undo", KeyCode.Mouse3)] 
+        [Shortcut("Bears/Selection/Undo", KeyCode.Mouse3)] 
         public static void Undo()
         {
             _SelectionHistory.Back();
         }
         
-        [Shortcut("Bear/Selection/Redo", KeyCode.Mouse4)]
+        [Shortcut("Bears/Selection/Redo", KeyCode.Mouse4 )]
         public static void Redo()
         {
             _SelectionHistory.Forward();
