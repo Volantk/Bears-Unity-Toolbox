@@ -125,6 +125,8 @@ namespace BearsEditorTools
             return Path.GetDirectoryName(path) == "Assets/Scenes";
         }
 
+        const string DEFAULT_IGNORE_PATTERN = "Packages/*\n[eE]xample";
+
         // Editor pref for ignoring scenes
         private static bool IsIgnoredScene(string path)
         {
@@ -134,19 +136,19 @@ namespace BearsEditorTools
                 return false;
             }
 
-            if (!EditorPrefs.HasKey("BearsEditorTools.QuickSceneOpener.IgnoredScenes"))
+            if (!EditorPrefs.HasKey(GetIgnoredScenesProjectPrefKey()))
                 return false;
 
-            const string defaultIgnoredScenes = "Packages/*\n[eE]xample";
-            
-            string ignoredScenes = EditorPrefs.GetString("BearsEditorTools.QuickSceneOpener.IgnoredScenes", defaultIgnoredScenes);
+            string ignoredScenes = EditorPrefs.GetString(GetIgnoredScenesProjectPrefKey(), DEFAULT_IGNORE_PATTERN);
             
             if (string.IsNullOrEmpty(ignoredScenes))
             {
                 return false;
             }
             
-            string[] ignoredPaths = ignoredScenes.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+            string[] ignoredPaths = ignoredScenes.Split(new[] { '\r' }, StringSplitOptions.RemoveEmptyEntries);
+            
+            Debug.Log(ignoredPaths.Length);
            
             // use regex to check if the path matches any of the ignored paths, split at newline
             foreach (string ignoredPath in ignoredPaths)
@@ -161,6 +163,11 @@ namespace BearsEditorTools
             
             return false;
             
+        }
+        
+        private static string GetIgnoredScenesProjectPrefKey()
+        {
+            return "BearsEditorTools.QuickSceneOpener.IgnoredScenes." + Application.productName;
         }
         
         static int numIgnored = 0;
@@ -326,15 +333,23 @@ namespace BearsEditorTools
                 EditorGUILayout.HelpBox("This is a quick scene opener. It allows you to quickly open scenes by filtering them by name.", MessageType.Info);
                 
                 // show textfield for editing the editor pref for ignored scene paths
-                EditorGUILayout.LabelField("Ignored Scenes", EditorStyles.boldLabel);
-                string ignoredScenes = EditorPrefs.GetString("BearsEditorTools.QuickSceneOpener.IgnoredScenes", "");
+                EditorGUILayout.LabelField("Ignored Scenes (regex, 1 rule per line)", EditorStyles.boldLabel);
+                string ignoredScenes = EditorPrefs.GetString(GetIgnoredScenesProjectPrefKey(), DEFAULT_IGNORE_PATTERN);
                 
                 using (var x = new EditorGUI.ChangeCheckScope())
                 {
                     ignoredScenes = EditorGUILayout.TextArea(ignoredScenes);
-                    if (x.changed)
+
+                    bool didReset = false;
+                    if (GUILayout.Button("Reset", EditorStyles.miniButton))
                     {
-                        EditorPrefs.SetString("BearsEditorTools.QuickSceneOpener.IgnoredScenes", ignoredScenes);
+                        ignoredScenes = DEFAULT_IGNORE_PATTERN;
+                        didReset = true;
+                    }
+                    
+                    if (x.changed || didReset)
+                    {
+                        EditorPrefs.SetString(GetIgnoredScenesProjectPrefKey(), ignoredScenes);
                     }
                 }
 
